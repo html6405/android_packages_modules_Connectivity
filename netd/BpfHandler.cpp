@@ -94,6 +94,11 @@ BpfHandler::BpfHandler(uint32_t perUidLimit, uint32_t totalLimit)
     : mPerUidStatsEntriesLimit(perUidLimit), mTotalUidStatsEntriesLimit(totalLimit) {}
 
 Status BpfHandler::init(const char* cg2_path) {
+    mBpfEnabled=false;
+
+    if (!mBpfEnabled) {
+        return netdutils::status::ok;
+    }
     // Make sure BPF programs are loaded before doing anything
     android::bpf::waitForProgsLoaded();
     ALOGI("BPF programs are loaded");
@@ -131,6 +136,10 @@ int BpfHandler::tagSocket(int sockFd, uint32_t tag, uid_t chargeUid, uid_t realU
     if (chargeUid != realUid && !hasUpdateDeviceStatsPermission(realUid)) {
         return -EPERM;
     }
+
+    if (!mBpfEnabled) {
+        return 0;
+     }
 
     // Note that tagging the socket to AID_CLAT is only implemented in JNI ClatCoordinator.
     // The process is not allowed to tag socket to AID_CLAT via tagSocket() which would cause
@@ -236,6 +245,9 @@ int BpfHandler::tagSocket(int sockFd, uint32_t tag, uid_t chargeUid, uid_t realU
 
 int BpfHandler::untagSocket(int sockFd) {
     std::lock_guard guard(mMutex);
+    if (!mBpfEnabled) {
+        return 0;
+    }
     uint64_t sock_cookie = getSocketCookie(sockFd);
 
     if (sock_cookie == NONEXISTENT_COOKIE) return -errno;

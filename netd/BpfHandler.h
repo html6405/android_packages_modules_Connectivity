@@ -78,6 +78,8 @@ class BpfHandler {
 
     // For testing
     friend class BpfHandlerTest;
+
+    bool mBpfEnabled;
 };
 
 }  // namespace net
