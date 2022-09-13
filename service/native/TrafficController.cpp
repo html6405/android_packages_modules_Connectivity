@@ -48,13 +48,12 @@
 #include "bpf/BpfMap.h"
 #include "netdutils/DumpWriter.h"
 
+using namespace android::bpf;  // NOLINT(google-build-using-namespace): grandfathered
+
 namespace android {
 namespace net {
 
 using base::StringPrintf;
-using base::unique_fd;
-using bpf::BpfMap;
-using bpf::synchronizeKernelRCU;
 using netdutils::DumpWriter;
 using netdutils::getIfaceList;
 using netdutils::NetlinkListener;
@@ -195,6 +194,11 @@ Status TrafficController::initMaps() {
 }
 
 Status TrafficController::start() {
+
+    if (!mBpfEnabled) {
+        return netdutils::status::ok;
+    }
+
     RETURN_IF_NOT_OK(initMaps());
 
     // Fetch the list of currently-existing interfaces. At this point NetlinkHandler is
@@ -245,6 +249,8 @@ Status TrafficController::start() {
 }
 
 int TrafficController::addInterface(const char* name, uint32_t ifaceIndex) {
+    if (!mBpfEnabled) return 0;
+
     IfaceValue iface;
     if (ifaceIndex == 0) {
         ALOGE("Unknown interface %s(%d)", name, ifaceIndex);
@@ -355,6 +361,10 @@ FirewallType TrafficController::getFirewallType(ChildChain chain) {
 
 int TrafficController::changeUidOwnerRule(ChildChain chain, uid_t uid, FirewallRule rule,
                                           FirewallType type) {
+    if (!mBpfEnabled) {
+        ALOGE("bpf is not set up, should use iptables rule");
+        return -ENOSYS;
+    }
     Status res;
     switch (chain) {
         case DOZABLE:
@@ -425,6 +435,11 @@ Status TrafficController::addUidInterfaceRules(const int iif,
                                                const std::vector<int32_t>& uidsToAdd) {
     std::lock_guard guard(mMutex);
 
+    if (!mBpfEnabled) {
+        ALOGW("UID ingress interface filtering not possible without BPF owner match");
+        return statusFromErrno(EOPNOTSUPP, "eBPF not supported");
+    }
+
     for (auto uid : uidsToAdd) {
         netdutils::Status result = addRule(uid, IIF_MATCH, iif);
         if (!isOk(result)) {
@@ -435,6 +450,10 @@ Status TrafficController::addUidInterfaceRules(const int iif,
 }
 
 Status TrafficController::removeUidInterfaceRules(const std::vector<int32_t>& uidsToDelete) {
+    if (!mBpfEnabled) {
+        ALOGW("UID ingress interface filtering not possible without BPF owner match");
+        return statusFromErrno(EOPNOTSUPP, "eBPF not supported");
+    }
     std::lock_guard guard(mMutex);
 
     for (auto uid : uidsToDelete) {
@@ -527,8 +546,16 @@ int TrafficController::toggleUidOwnerMap(ChildChain chain, bool enable) {
     return -res.code();
 }
 
+bool TrafficController::getBpfEnabled() {
+    return mBpfEnabled;
+}
+
 Status TrafficController::swapActiveStatsMap() {
     std::lock_guard guard(mMutex);
+
+    if (!mBpfEnabled) {
+        return statusFromErrno(EOPNOTSUPP, "This device doesn't have eBPF support");
+    }
 
     uint32_t key = CURRENT_STATS_MAP_CONFIGURATION_KEY;
     auto oldConfigure = mConfigurationMap.readValue(key);
@@ -572,9 +599,12 @@ void TrafficController::setPermissionForUids(int permission, const std::vector<u
             // Clean up all permission information for the related uid if all the
             // packages related to it are uninstalled.
             mPrivilegedUser.erase(uid);
-            Status ret = mUidPermissionMap.deleteValue(uid);
-            if (!isOk(ret) && ret.code() != ENOENT) {
-                ALOGE("Failed to clean up the permission for %u: %s", uid, strerror(ret.code()));
+            if (mBpfEnabled) {
+                Status ret = mUidPermissionMap.deleteValue(uid);
+                if (!isOk(ret) && ret.code() != ENOENT) {
+                    ALOGE("Failed to clean up the permission for %u: %s", uid,
+                          strerror(ret.code()));
+                }
             }
         }
         return;
@@ -589,6 +619,10 @@ void TrafficController::setPermissionForUids(int permission, const std::vector<u
             mPrivilegedUser.erase(uid);
         }
 
+        // Skip the bpf map operation if not supported.
+        if (!mBpfEnabled) {
+            continue;
+        }
         // The map stores all the permissions that the UID has, except if the only permission
         // the UID has is the INTERNET permission, then the UID should not appear in the map.
         if (permission != INetd::PERMISSION_INTERNET) {
@@ -644,6 +678,11 @@ void TrafficController::dump(int fd, bool verbose) {
     dw.println("TrafficController");
 
     ScopedIndent indentPreBpfModule(dw);
+    dw.println("BPF module status: %s", mBpfEnabled ? "enabled" : "disabled");
+
+    if (!mBpfEnabled) {
+        return;
+    }
 
     dw.blankline();
     dw.println("mCookieTagMap status: %s",

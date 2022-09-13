@@ -41,6 +41,12 @@ class TrafficController {
     netdutils::Status start();
 
     /*
+     * Check if the current device have the bpf traffic stats accounting service
+     * running.
+     */
+    bool getBpfEnabled();
+
+    /*
      * Swap the stats map config from current active stats map to the idle one.
      */
     netdutils::Status swapActiveStatsMap() EXCLUDES(mMutex);
@@ -176,6 +182,8 @@ class TrafficController {
 
     netdutils::Status addRule(uint32_t uid, UidOwnerMatchType match, uint32_t iif = 0)
             REQUIRES(mMutex);
+
+    bool mBpfEnabled;
 
     std::mutex mMutex;
 
