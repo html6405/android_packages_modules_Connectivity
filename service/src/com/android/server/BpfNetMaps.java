@@ -81,7 +81,6 @@ public class BpfNetMaps {
      */
     public void addNaughtyApp(final int uid) {
         final int err = native_addNaughtyApp(uid);
-        maybeThrow(err, "Unable to add naughty app");
     }
 
     /**
@@ -93,7 +92,6 @@ public class BpfNetMaps {
      */
     public void removeNaughtyApp(final int uid) {
         final int err = native_removeNaughtyApp(uid);
-        maybeThrow(err, "Unable to remove naughty app");
     }
 
     /**
@@ -105,7 +103,6 @@ public class BpfNetMaps {
      */
     public void addNiceApp(final int uid) {
         final int err = native_addNiceApp(uid);
-        maybeThrow(err, "Unable to add nice app");
     }
 
     /**
@@ -117,7 +114,6 @@ public class BpfNetMaps {
      */
     public void removeNiceApp(final int uid) {
         final int err = native_removeNiceApp(uid);
-        maybeThrow(err, "Unable to remove nice app");
     }
 
     /**
@@ -130,7 +126,6 @@ public class BpfNetMaps {
      */
     public void setChildChain(final int childChain, final boolean enable) {
         final int err = native_setChildChain(childChain, enable);
-        maybeThrow(err, "Unable to set child chain");
     }
 
     /**
@@ -166,7 +161,6 @@ public class BpfNetMaps {
      */
     public void setUidRule(final int childChain, final int uid, final int firewallRule) {
         final int err = native_setUidRule(childChain, uid, firewallRule);
-        maybeThrow(err, "Unable to set uid rule");
     }
 
     /**
@@ -192,7 +186,6 @@ public class BpfNetMaps {
             return;
         }
         final int err = native_addUidInterfaceRules(ifName, uids);
-        maybeThrow(err, "Unable to add uid interface rules");
     }
 
     /**
@@ -212,7 +205,6 @@ public class BpfNetMaps {
             return;
         }
         final int err = native_removeUidInterfaceRules(uids);
-        maybeThrow(err, "Unable to remove uid interface rules");
     }
 
     /**
@@ -223,7 +215,6 @@ public class BpfNetMaps {
      */
     public void swapActiveStatsMap() {
         final int err = native_swapActiveStatsMap();
-        maybeThrow(err, "Unable to swap active stats map");
     }
 
     /**
