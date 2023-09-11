@@ -104,7 +104,7 @@ int bpfGetIfaceStats(const char* iface, Stats* stats) {
     int ret;
     if (!ifaceStatsMap.isValid() || !ifaceStatsMap.isOk()) {
         ret = -errno;
-        ALOGE("get ifaceStats map fd failed: %s", strerror(errno));
+        //ALOGE("get ifaceStats map fd failed: %s", strerror(errno));
         return ret;
     }
     BpfMapRO<uint32_t, IfaceValue> ifaceIndexNameMap(IFACE_INDEX_NAME_MAP_PATH);
@@ -273,7 +273,7 @@ int parseBpfNetworkStatsDev(std::vector<stats_line>* lines) {
     BpfMapRO<uint32_t, StatsValue> ifaceStatsMap(IFACE_STATS_MAP_PATH);
     if (!ifaceStatsMap.isValid()) {
         ret = -errno;
-        ALOGE("get ifaceStats map fd failed: %s", strerror(errno));
+        //ALOGE("get ifaceStats map fd failed: %s", strerror(errno));
         return ret;
     }
     return parseBpfNetworkStatsDevInternal(lines, ifaceStatsMap, ifaceIndexNameMap);
